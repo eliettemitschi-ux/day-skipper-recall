@@ -62,10 +62,28 @@
   nav.tabs{ display:flex; gap:4px; background:var(--surface-2); border-radius:10px; padding:4px; }
   nav.tabs button{
     flex:1; padding:9px 4px; border:none; background:transparent; color:var(--muted);
-    font:inherit; font-size:.84rem; font-weight:600; border-radius:7px; cursor:pointer;
+    font:inherit; font-size:.78rem; font-weight:600; border-radius:7px; cursor:pointer;
   }
   nav.tabs button[aria-selected="true"]{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
   button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .sync-note a{ color:var(--accent); font-weight:600; }
+  .lrow.ord .t{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; }
+  .lrow.ord .name{ display:flex; gap:8px; align-items:center; }
+  .lrow.ord .name .prio{ flex:0 0 auto; min-width:5.4em; text-align:center; }
+  .chips{ display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+  .chip{ border:1px solid var(--border); background:var(--surface); color:var(--ink); border-radius:99px; padding:7px 11px; font:inherit; font-size:.78rem; font-weight:600; cursor:pointer; }
+  .chip[aria-pressed="true"]{ background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .chip small{ font-weight:500; opacity:.8; margin-left:4px; }
+  .prq{ font-family:"Fraunces",Georgia,serif; font-size:1.18rem; line-height:1.4; margin:4px 0 14px; font-weight:600; }
+  .prrow{ display:flex; align-items:center; gap:10px; margin:10px 0; }
+  .prrow > span:first-child{ min-width:5.2em; font-size:.84rem; color:var(--muted); font-weight:600; }
+  .prin{ flex:1; min-width:0; font:inherit; font-size:1.15rem; font-family:"IBM Plex Mono",ui-monospace,monospace; padding:11px 12px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--ink); }
+  .prin:focus{ outline:2px solid var(--accent); }
+  .prin.ok{ border-color:var(--good); } .prin.no{ border-color:var(--bad); }
+  .prrow .u{ min-width:2.2em; color:var(--muted); font-size:.9rem; }
+  .prres{ border-radius:10px; padding:11px 13px; margin:14px 0 8px; font-weight:700; }
+  .prres.ok{ background:var(--good); color:var(--good-ink); } .prres.no{ background:var(--bad); color:var(--bad-ink); }
+  .prsteps{ margin:8px 0 14px 1.1em; padding:0; line-height:1.55; font-size:.92rem; }
   section[hidden]{ display:none !important; }
 
   .card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; box-shadow:var(--shadow); }
@@ -174,12 +192,14 @@
     <button role="tab" id="tb-today" data-act="tab" data-v="today" aria-selected="true">Today</button>
     <button role="tab" id="tb-learn" data-act="tab" data-v="learn" aria-selected="false">Learn</button>
     <button role="tab" id="tb-review" data-act="tab" data-v="review" aria-selected="false">Review</button>
+    <button role="tab" id="tb-practice" data-act="tab" data-v="practice" aria-selected="false">Practice</button>
     <button role="tab" id="tb-glossary" data-act="tab" data-v="glossary" aria-selected="false">Glossary</button>
   </nav>
 
   <section id="p-today" class="stack"></section>
   <section id="p-learn" class="stack" hidden></section>
   <section id="p-review" class="stack" hidden></section>
+  <section id="p-practice" class="stack" hidden></section>
   <section id="p-glossary" class="stack" hidden></section>
 
   <p class="sync-note" id="syncNote"></p>
@@ -236,7 +256,7 @@
   }
 
   var S = { cards: [], lessons: [], glossary: [], plan: null, progress: { lessons: {}, did: {}, timers: {} }, db: null, cardsCol: null };
-  var UI = { tab: "today", hub: null, rv: { mode: "due", ids: null, spec: null, pos: 0, label: "", curId: null, revealed: false, picked: null }, L: null, gq: false, gOpen: {} };
+  var UI = { tab: "today", hub: null, rv: { mode: "due", ids: null, spec: null, pos: 0, label: "", curId: null, revealed: false, picked: null }, L: null, gq: false, gOpen: {}, pr: { gen: "mixed", q: null, gid: null, vals: [], checked: false, res: null, n: 0, ok: 0 } };
   var session = { again: 0, good: 0, easy: 0 };
 
   var LKEY = "dayskipper_recall_cards_v1";
@@ -473,7 +493,10 @@
     } else if (S.lessons.length){
       h += '<button class="btn" data-act="tab" data-v="learn">All lessons done<small>re-open any lesson from Learn</small></button>';
     }
+    h += '<button class="btn" data-act="tab" data-v="practice">Practise the calculations<small>distance, tide height, variation, course to steer. New numbers every time</small></button>';
     h += '</div>';
+
+    h += renderPlan();
 
     var rl = revisitList().slice(0, 2);
     if (rl.length){
@@ -490,7 +513,7 @@
     so.forEach(function(g){
       var ci = g.sec.indexOf(':'), short = ci > 0 ? g.sec.slice(0, ci) : g.sec, name = ci > 0 ? g.sec.slice(ci + 1).trim() : '';
       var prog = g.done === g.ls.length ? 'done' : g.done + ' of ' + g.ls.length + ' lessons';
-      h += '<button class="lrow ord' + (g.sec === nlSec ? ' here' : '') + '" data-act="tab" data-v="learn"><div class="t"><span class="name">' + prioBadge(g.label) + ' ' + esc(short) + (name ? ' &middot; ' + esc(name) : '') + '</span><span class="st">' + prog + (g.sec === nlSec ? ' &middot; <b>you are here</b>' : '') + '</span></div></button>';
+      h += '<button class="lrow ord' + (g.sec === nlSec ? ' here' : '') + '" data-act="tab" data-v="learn"><div class="t"><span class="name">' + prioBadge(g.label) + '<span>' + esc(short) + (name ? ' &middot; ' + esc(name) : '') + '</span></span><span class="st">' + prog + (g.sec === nlSec ? ' &middot; <b>you are here</b>' : '') + '</span></div></button>';
     });
     h += '<div class="legend">Do priority 1 to 6 first, in this order. Extra sections only once those feel solid.</div></div>';
 
@@ -512,7 +535,7 @@
     sortedLessons().forEach(function(l, i){ if (l.cardLesson) rank[l.cardLesson] = i; });
     order.sort(function(a, b){ return (rank[a] == null ? 99 : rank[a]) - (rank[b] == null ? 99 : rank[b]); });
     if (order.length){
-      h += '<div class="card"><div class="eyebrow">By lesson</div>';
+      h += '<details class="card"><summary class="eyebrow" style="cursor:pointer;margin:0">By lesson (' + order.length + '), tap to open</summary><div style="margin-top:10px"></div>';
       order.forEach(function(k){
         var g = groups[k], n = g.cards.length, c2 = { "new": 0, shaky: 0, getting: 0, solid: 0 };
         g.cards.forEach(function(c){ c2[bucketOf(c)]++; });
@@ -521,7 +544,7 @@
         BORDER.forEach(function(b){ if (c2[b]) h += '<span class="c-' + b + '" style="width:' + (100 * c2[b] / n) + '%"></span>'; });
         h += '</div></button>';
       });
-      h += '<div class="legend">grey = not seen &middot; red = shaky &middot; amber = getting there &middot; green = solid</div></div>';
+      h += '<div class="legend">grey = not seen &middot; red = shaky &middot; amber = getting there &middot; green = solid</div></details>';
     }
     if (S.plan && S.plan.nextUp) h += '<p class="muted">' + fmt(S.plan.nextUp) + '</p>';
     $("p-today").innerHTML = h;
@@ -710,14 +733,216 @@
 
   function render(){
     renderDeadline();
-    ["today", "learn", "review", "glossary"].forEach(function(t){
+    ["today", "learn", "review", "practice", "glossary"].forEach(function(t){
       $("p-" + t).hidden = (t !== UI.tab);
       $("tb-" + t).setAttribute("aria-selected", String(t === UI.tab));
     });
     if (UI.tab === "today") renderToday();
     else if (UI.tab === "learn") renderLearn();
     else if (UI.tab === "review") renderReview();
+    else if (UI.tab === "practice") renderPractice();
     else renderGlossary();
+  }
+
+  /* ---------- day plan ---------- */
+  var PLAN = {
+    "2026-10-04": ["Review the due cards (10 min).", "Learn Section 2, then start Section 5 (Learn tab, Start).", "Practice: 5 course-to-steer and 5 true/magnetic questions."],
+    "2026-10-05": ["Review the due cards, then the Shaky box.", "Learn Sections 6 and 3.", "Practice: 5 tide-height and 5 depth questions. On Chart 4, plan a three-leg passage."],
+    "2026-10-06": ["Review the due cards, then the Shaky box.", "Learn Sections 7 and 11 (buoyage, lights, shapes, sounds).", "Read the Section 8 Mayday lesson and the safety and man-overboard lessons. Practice: 10 mixed questions."],
+    "2026-10-07": ["Quick pass through the Shaky box only.", "Read the cheat sheet (Practice tab) once.", "Pack: charts, plotter, dividers, pencils, lifejacket, waterproofs. Early night."]
+  };
+  function planDay(){
+    var t = todayISO();
+    if (PLAN[t]) return t;
+    return t < "2026-10-04" ? "2026-10-04" : null;
+  }
+  function renderPlan(){
+    var d = planDay(); if (!d) return '';
+    var dt = new Date(d + "T12:00:00"), nm = dt.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+    var done = (S.progress && S.progress.plan) || {};
+    var h = '<div class="card"><div class="eyebrow">Plan for ' + esc(nm) + ' (about 25 min each)</div>';
+    PLAN[d].forEach(function(txt, i){
+      var k = d + "-" + i;
+      h += '<label class="dothis" style="margin:8px 0"><input type="checkbox" data-act="plan-do" data-v="' + k + '"' + (done[k] ? ' checked' : '') + '><span>' + esc(txt) + '</span></label>';
+    });
+    return h + '</div>';
+  }
+  var CHEAT = [
+    ["Distance, speed, time", ["Distance = speed \u00d7 time \u00f7 60 (time in minutes).", "Time (min) = distance \u00f7 speed \u00d7 60.  Speed = distance \u00f7 time \u00d7 60.", "1 minute of latitude = 1 nm. Never measure distance on the longitude scale. 1 nm = 1852 m. 1 cable = 0.1 nm."]],
+    ["Depth and tide", ["Depth of water = charted depth + height of tide.", "Over a drying height: water = height of tide \u2212 drying height.", "Water under the keel = depth \u2212 draught.", "Rule of twelfths: 1, 2, 3, 3, 2, 1 of the range each hour (only approximate: on your course use the port's own tidal curve)."]],
+    ["True, magnetic, compass", ["True to magnetic: add West, subtract East. Magnetic to true: subtract West, add East.", "TVMDC: True, Variation, Magnetic, Deviation, Compass. Going left to right, add West. (True Virgin Make Dull Cadets Add Whisky.)", "Reciprocal bearing = bearing \u00b1 180\u00b0."]],
+    ["Course to steer (CTS)", ["1. Draw the ground track. 2. From the start draw the tide vector (set, one hour of drift). 3. Dividers set to boat speed (one hour). From the end of the tide vector, cut the track line.", "4. Tide-vector end to that point = course to steer. 5. Start to that point = distance made good in one hour (ground speed).", "Leeway: for a CTS alter towards the wind. For an EP, leeway pushes you downwind. Plot a new vector for each hour of tide."]],
+    ["EP and position", ["DR: log distance along the heading (corrected). EP: add the tide vector (and leeway).", "A fix beats an EP. Three bearings that do not meet make a cocked hat: take the point nearest danger."]],
+    ["Collision rules", ["Port tack gives way to starboard tack. Same tack: windward gives way. Overtaking gives way. Power gives way to sail (unless overtaking).", "Sound: 1 short = starboard, 2 short = port, 3 = astern, 5 short = I doubt your intentions. Short about 1 s, prolonged 4 to 6 s (power-driven vessels in sight only).", "Fog: power making way 1 prolonged. Sail, fishing, NUC, RAM, constrained by draught, towing: 1 prolonged + 2 short. At anchor: bell about 5 s each minute. Every 2 min at most.", "Lights: masthead white 225\u00b0, sidelights red port / green starboard 112.5\u00b0 each, stern white 135\u00b0. Tricolour: sailing boats under 20 m only."]],
+    ["Buoyage", ["Topmark arrows point to the black. North: black over yellow, arrows up, continuous flash. East: black-yellow-black, 3 flashes. South: yellow over black, 6 + long flash. West: yellow-black-yellow, 9 flashes.", "IALA A: red to port, green to starboard (going in). Isolated danger: black with red bands, white 2 flashes. Safe water: red and white stripes. Special: yellow."]],
+    ["Mayday", ["DSC distress alert first, then voice on channel 16, full power.", "MAYDAY x3. THIS IS [vessel x3] + MMSI and call sign. MAYDAY [vessel]. My position. Nature of distress. Assistance required. Persons aboard. Other information. OVER. Release the PTT."]],
+    ["Weather", ["Beaufort: F4 11-16 kn, F5 17-21, F6 22-27, F7 28-33, F8 34-40, F9 41-47. Gale warning = F8 or more. Strong wind warning = F6 or F7.", "Veer = clockwise. Back = anticlockwise. Back to the wind, low is on your left (north). Wind against tide makes the worst sea.", "Visibility: fog under 1000 m, poor 1000 m to 2 nm, moderate 2 to 5 nm, good over 5 nm."]]
+  ];
+  function renderCheat(){
+    var h = '<div class="card"><div class="eyebrow">Cheat sheet</div><p class="muted" style="margin:2px 0 8px">The numbers and recipes you need most. Read it once a day.</p>';
+    CHEAT.forEach(function(b){
+      h += '<h4 style="margin:14px 0 4px">' + esc(b[0]) + '</h4><ul style="margin:0 0 0 1.1em;padding:0;line-height:1.5;font-size:.9rem">';
+      b[1].forEach(function(x){ h += '<li>' + esc(x) + '</li>'; });
+      h += '</ul>';
+    });
+    return h + '</div>';
+  }
+  function quizIds(){
+    var pri = {}; sectionOrder().forEach(function(g){ if (g.label !== "extra") pri[g.sec] = true; });
+    var m = S.cards.filter(function(c){ return c.choices && c.choices.length && pri[c.section]; });
+    if (m.length < 15) m = S.cards.filter(function(c){ return c.choices && c.choices.length; });
+    return shuffle(m.slice()).slice(0, 15).map(function(c){ return c.id; });
+  }
+
+  /* ---------- calculation practice ---------- */
+  function rnd(a, b){ return a + Math.floor(Math.random() * (b - a + 1)); }
+  function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+  function r1(x){ return Math.round(x * 10) / 10; }
+  function r2(x){ return Math.round(x * 100) / 100; }
+  function m360(n){ return ((Math.round(n) % 360) + 360) % 360; }
+  function p3(n){ var s = String(m360(n)); while (s.length < 3) s = "0" + s; return s; }
+  function hhmm(m){ m = ((m % 1440) + 1440) % 1440; var h = Math.floor(m / 60), mm = m % 60; return (h < 10 ? "0" : "") + h + (mm < 10 ? "0" : "") + mm; }
+  function rad(d){ return d * Math.PI / 180; }
+  function deg(r){ return r * 180 / Math.PI; }
+  function latStr(totalMin){ var d = Math.floor(totalMin / 60), m = r1(totalMin - d * 60); return d + "°" + (m < 10 ? "0" : "") + m.toFixed(1) + "'N"; }
+
+  var GENS = [
+    { id: "dst", name: "Distance, speed, time", make: function(){
+        var t = rnd(0, 2);
+        if (t === 0){
+          var s = pick([4, 5, 6, 6.5, 7, 8]), mins = pick([30, 40, 45, 60, 75, 80, 90, 100, 120, 150]), d = r2(s * mins / 60);
+          return { text: "You motor at " + s + " knots for " + mins + " minutes. How far do you go?", parts: [{ label: "Distance", unit: "nm", kind: "num", ans: d, tol: 0.1 }],
+                   steps: ["Distance = speed × time ÷ 60 (time in minutes).", s + " × " + mins + " ÷ 60 = " + d + " nm."] };
+        }
+        if (t === 1){
+          var s2 = pick([4, 5, 6, 7, 8]), d2 = pick([6, 9, 10, 12, 14, 15, 18, 21, 24]), m = Math.round(d2 / s2 * 60);
+          return { text: "The next waypoint is " + d2 + " nm away and you make good " + s2 + " knots. How many minutes will it take?", parts: [{ label: "Time", unit: "min", kind: "num", ans: m, tol: 1 }],
+                   steps: ["Time = distance ÷ speed × 60.", d2 + " ÷ " + s2 + " × 60 = " + m + " minutes (" + Math.floor(m / 60) + " h " + (m % 60) + " min)."] };
+        }
+        var d3 = pick([6, 8, 9, 12, 15, 18]), m3 = pick([60, 90, 120, 150, 180, 45, 72]), s3 = r1(d3 / m3 * 60);
+        return { text: "You cover " + d3 + " nm in " + m3 + " minutes. What is your speed over the ground?", parts: [{ label: "Speed", unit: "kn", kind: "num", ans: s3, tol: 0.1 }],
+                 steps: ["Speed = distance ÷ time × 60.", d3 + " ÷ " + m3 + " × 60 = " + s3 + " knots."] };
+      } },
+    { id: "eta", name: "Time of arrival", make: function(){
+        var dep = rnd(5, 15) * 60 + pick([0, 10, 15, 20, 30, 40, 45, 50]), s = pick([4, 5, 6, 7]), d = pick([10, 12, 15, 18, 20, 24, 28]), m = Math.round(d / s * 60), arr = dep + m;
+        return { text: "You leave at " + hhmm(dep) + " for a harbour " + d + " nm away, making good " + s + " knots. What time do you arrive? (four digits, 24-hour)", parts: [{ label: "ETA", unit: "", kind: "time", ans: ((arr % 1440) + 1440) % 1440, tol: 2 }],
+                 steps: ["Time = " + d + " ÷ " + s + " × 60 = " + m + " minutes (" + Math.floor(m / 60) + " h " + (m % 60) + " min).", hhmm(dep) + " + " + Math.floor(m / 60) + " h " + (m % 60) + " min = " + hhmm(arr) + "."] };
+      } },
+    { id: "mag", name: "True and magnetic", make: function(){
+        var v = rnd(1, 8), west = Math.random() < 0.5, b = rnd(5, 355), toMag = Math.random() < 0.5, sgn = west ? 1 : -1, V = v + "°" + (west ? "W" : "E");
+        if (toMag){
+          var a = m360(b + sgn * v);
+          return { text: "The chart gives a true course of " + p3(b) + "°(T). Variation is " + V + ". What is the magnetic course?", parts: [{ label: "Magnetic", unit: "°", kind: "brg", ans: a, tol: 0 }],
+                   steps: ["True to magnetic: add West, subtract East.", p3(b) + (west ? " + " : " − ") + v + " = " + p3(a) + "°(M)."] };
+        }
+        var a2 = m360(b - sgn * v);
+        return { text: "Your hand bearing compass reads " + p3(b) + "°(M) and variation is " + V + ". What is the true bearing?", parts: [{ label: "True", unit: "°", kind: "brg", ans: a2, tol: 0 }],
+                 steps: ["Magnetic to true: subtract West, add East.", p3(b) + (west ? " − " : " + ") + v + " = " + p3(a2) + "°(T)."] };
+      } },
+    { id: "recip", name: "Reciprocal bearings", make: function(){
+        var b = rnd(1, 359), a = m360(b + 180);
+        return { text: "A lighthouse bears " + p3(b) + "° from your boat. What is the bearing of your boat from the lighthouse (the back bearing)?", parts: [{ label: "Back bearing", unit: "°", kind: "brg", ans: a, tol: 0 }],
+                 steps: ["Reciprocal = bearing ± 180°.", p3(b) + (b < 180 ? " + 180 = " : " − 180 = ") + p3(a) + "°."] };
+      } },
+    { id: "twelfths", name: "Rule of twelfths", make: function(){
+        var rng = pick([2.4, 3.6, 4.8, 6.0, 7.2]), lw = pick([0.4, 0.6, 0.8, 1.0, 1.2]), hw = r1(lw + rng), k = rnd(1, 5), cum = [0, 1, 3, 6, 9, 11, 12], t = rnd(0, 2), part = r2(rng * cum[k] / 12), ans, text, how;
+        if (t === 0){ ans = r2(hw - part); text = "HW is " + hw + " m and LW is " + lw + " m (a six-hour tide). What is the height of tide " + k + " hour" + (k > 1 ? "s" : "") + " after HW?"; how = "falls " + cum[k] + "/12 of the range: " + hw + " − " + part + " = " + ans + " m."; }
+        else if (t === 1){ ans = r2(hw - part); text = "HW is " + hw + " m and LW is " + lw + " m. What is the height of tide " + k + " hour" + (k > 1 ? "s" : "") + " BEFORE HW?"; how = "is the same " + k + " h before HW as " + k + " h after: " + hw + " − " + part + " = " + ans + " m."; }
+        else { ans = r2(lw + part); text = "LW is " + lw + " m and the next HW is " + hw + " m. What is the height of tide " + k + " hour" + (k > 1 ? "s" : "") + " after LW?"; how = "rises " + cum[k] + "/12 of the range: " + lw + " + " + part + " = " + ans + " m."; }
+        return { text: text, parts: [{ label: "Height", unit: "m", kind: "num", ans: ans, tol: 0.05 }],
+                 steps: ["Range = " + hw + " − " + lw + " = " + r1(rng) + " m, so one twelfth = " + r2(rng / 12) + " m.", "Twelfths per hour: 1, 2, 3, 3, 2, 1. After " + k + " h the tide " + how] };
+      } },
+    { id: "depth", name: "Depth and clearance", make: function(){
+        var t = rnd(0, 2);
+        if (t === 0){
+          var cd = r1(rnd(20, 70) / 10), ht = r1(rnd(5, 45) / 10), dr = pick([1.2, 1.5, 1.8, 2.0, 2.2]), a = r1(cd + ht - dr);
+          return { text: "Charted depth is " + cd + " m, the height of tide is " + ht + " m and your draught is " + dr + " m. How much water is there under the keel?", parts: [{ label: "Under keel", unit: "m", kind: "num", ans: a, tol: 0.05 }],
+                   steps: ["Depth of water = charted depth + height of tide.", cd + " + " + ht + " = " + r1(cd + ht) + " m.", "Under the keel = depth − draught: " + r1(cd + ht) + " − " + dr + " = " + a + " m."] };
+        }
+        if (t === 1){
+          var dh = r1(rnd(5, 30) / 10), ht2 = r1(dh + rnd(2, 25) / 10), a2 = r1(ht2 - dh);
+          return { text: "A rock dries " + dh + " m (charted drying height). The height of tide is " + ht2 + " m. How much water is over the rock?", parts: [{ label: "Depth", unit: "m", kind: "num", ans: a2, tol: 0.05 }],
+                   steps: ["A drying height counts as negative depth.", "Water over the rock = height of tide − drying height.", ht2 + " − " + dh + " = " + a2 + " m."] };
+        }
+        var dh3 = r1(rnd(5, 25) / 10), dr3 = pick([1.5, 1.8, 2.0, 2.2]), cl = pick([0.5, 0.6, 1.0]), a3 = r1(dh3 + dr3 + cl);
+        return { text: "A bar dries " + dh3 + " m. Your draught is " + dr3 + " m and you want " + cl + " m clearance under the keel. What is the minimum height of tide to cross it?", parts: [{ label: "Min. tide", unit: "m", kind: "num", ans: a3, tol: 0.05 }],
+                 steps: ["Min. height of tide = drying height + draught + clearance.", dh3 + " + " + dr3 + " + " + cl + " = " + a3 + " m."] };
+      } },
+    { id: "lat", name: "Distance from latitude", make: function(){
+        var base = rnd(49, 51) * 60 + rnd(0, 59), diff = rnd(8, 58) + pick([0, 0.5]), l2 = base + diff;
+        return { text: "Point A is at " + latStr(base) + " and point B is at " + latStr(l2) + ", on the same meridian. How many nautical miles apart are they?", parts: [{ label: "Distance", unit: "nm", kind: "num", ans: diff, tol: 0.1 }],
+                 steps: ["One minute of latitude = one nautical mile.", "Difference in latitude = " + diff + " minutes = " + diff + " nm.", "(Never use the longitude scale to measure distance.)"] };
+      } },
+    { id: "cts", name: "Course to steer with tide", make: function(){
+        var D, th, R, Vb, p, h, sog, tries = 0;
+        do {
+          D = rnd(0, 35) * 10; th = rnd(0, 35) * 10; R = pick([1, 1.5, 2, 2.5, 3]); Vb = pick([4, 5, 5.5, 6, 6.5, 7]);
+          p = -R * Math.sin(rad(th - D)) / Vb;
+          h = D + deg(Math.asin(p)); sog = Vb * Math.cos(rad(h - D)) + R * Math.cos(rad(th - D)); tries++;
+        } while ((Math.abs(p) > 0.6 || sog < 2.5 || Math.abs(R * Math.sin(rad(th - D))) < 0.5) && tries < 200);
+        var H = m360(h), S2 = r1(sog);
+        return { text: "You want to make good a track of " + p3(D) + "°(T). Your boat speed through the water is " + Vb + " knots. The tide sets " + p3(th) + "°(T) at " + R + " knots. What course should you steer (true) and what will your speed over the ground be?",
+                 parts: [{ label: "Steer", unit: "°T", kind: "brg", ans: H, tol: 3 }, { label: "Ground speed", unit: "kn", kind: "num", ans: S2, tol: 0.3 }],
+                 steps: ["Plot it on your chart for one hour:", "1. From the start draw the track line " + p3(D) + "°(T).", "2. From the start draw the tide vector " + p3(th) + "°(T), " + R + " nm long.", "3. Set dividers to " + Vb + " nm (boat speed). From the end of the tide vector, cut the track line.", "4. The line from the end of the tide vector to that point is the course to steer. Read it with the plotter: about " + p3(H) + "°(T).", "5. The distance along the track from the start to that point is the ground speed: about " + S2 + " kn."] };
+      } }
+  ];
+  function genById(id){ for (var i = 0; i < GENS.length; i++) if (GENS[i].id === id) return GENS[i]; return GENS[0]; }
+  window.__practice = { GENS: GENS, prOk: prOk, prParse: prParse };
+  function prStats(){ return (S.progress && S.progress.practice) || {}; }
+  function prChoose(){
+    if (UI.pr.gen !== "mixed" && UI.pr.gen !== "cheat") return genById(UI.pr.gen);
+    var st = prStats(), tot = 0, w = GENS.map(function(g){ var x = st[g.id]; var wt = (x && x.n >= 3) ? 1 + 2 * (1 - x.ok / x.n) : 2; tot += wt; return wt; }), r = Math.random() * tot;
+    for (var i = 0; i < GENS.length; i++){ r -= w[i]; if (r <= 0) return GENS[i]; }
+    return GENS[0];
+  }
+  function prNew(){ var g = prChoose(); UI.pr.gid = g.id; UI.pr.q = g.make(); UI.pr.vals = []; UI.pr.checked = false; UI.pr.res = null; UI.pr.focus = true; }
+  function prParse(kind, str){
+    str = String(str == null ? "" : str).trim().replace(",", ".");
+    if (!str) return NaN;
+    if (kind === "time"){ var d = str.replace(/[^0-9]/g, ""); if (d.length < 3 || d.length > 4) return NaN; var hh = +d.slice(0, d.length - 2), mm = +d.slice(-2); return mm > 59 ? NaN : hh * 60 + mm; }
+    return parseFloat(str);
+  }
+  function prOk(part, val){
+    if (isNaN(val)) return false;
+    if (part.kind === "brg"){ var d = Math.abs(m360(val) - part.ans); return Math.min(d, 360 - d) <= part.tol; }
+    if (part.kind === "time"){ var d2 = Math.abs(val - part.ans); return Math.min(d2, 1440 - d2) <= part.tol; }
+    return Math.abs(val - part.ans) <= part.tol + 1e-9;
+  }
+  function prShow(part){ return part.kind === "brg" ? p3(part.ans) : (part.kind === "time" ? hhmm(part.ans) : String(part.ans)); }
+  function prCheck(){
+    var P = UI.pr; if (!P.q || P.checked) return;
+    var oks = P.q.parts.map(function(pt, i){ return prOk(pt, prParse(pt.kind, P.vals[i])); }), all = oks.every(Boolean);
+    P.checked = true; P.res = { oks: oks, all: all }; P.n++; if (all) P.ok++;
+    var st = prStats()[P.gid] || { n: 0, ok: 0 }, o = {}; o[P.gid] = { n: (st.n || 0) + 1, ok: (st.ok || 0) + (all ? 1 : 0) };
+    setProgress({ practice: o });
+  }
+  function renderPractice(){
+    var host = $("p-practice"), P = UI.pr, st = prStats(), h = '';
+    if (P.gen === "cheat"){ var hh = '<div class="card"><div class="eyebrow">Practice</div><div class="chips">' +
+        '<button class="chip" data-act="pr-quiz">Quick quiz: 15 multiple-choice</button><button class="chip" data-act="pr-gen" data-v="mixed" aria-pressed="false">Calculations</button><button class="chip" data-act="pr-gen" data-v="cheat" aria-pressed="true">Cheat sheet</button></div></div>';
+      host.innerHTML = hh + renderCheat(); return; }
+    if (!P.q) prNew();
+    var g = genById(P.gid);
+    h += '<div class="card"><div class="eyebrow">Calculation practice</div><p class="muted" style="margin:2px 0 0">New numbers every time. Work it out on paper or on your own chart first, then type the answer.</p><div class="chips">';
+    h += '<button class="chip" data-act="pr-quiz">Quick quiz: 15 multiple-choice</button><button class="chip" data-act="pr-gen" data-v="cheat" aria-pressed="' + (P.gen === "cheat") + '">Cheat sheet</button>';
+    h += '<button class="chip" data-act="pr-gen" data-v="mixed" aria-pressed="' + (P.gen === "mixed") + '">Mixed (weak ones more)</button>';
+    GENS.forEach(function(x){ var s = st[x.id]; h += '<button class="chip" data-act="pr-gen" data-v="' + x.id + '" aria-pressed="' + (P.gen === x.id) + '">' + esc(x.name) + (s && s.n ? '<small>' + s.ok + '/' + s.n + '</small>' : '') + '</button>'; });
+    h += '</div></div>';
+    h += '<div class="card"><div class="eyebrow">' + esc(g.name) + (P.n ? ' &middot; this session ' + P.ok + ' of ' + P.n : '') + '</div><div class="prq">' + esc(P.q.text) + '</div>';
+    P.q.parts.forEach(function(pt, i){
+      var cls = P.checked ? (P.res.oks[i] ? ' ok' : ' no') : '';
+      h += '<label class="prrow"><span>' + esc(pt.label) + '</span><input class="prin' + cls + '" data-p="' + i + '" inputmode="' + (pt.kind === "num" ? "decimal" : "numeric") + '" autocomplete="off" value="' + esc(P.vals[i] || "") + '"' + (P.checked ? ' readonly' : '') + '><span class="u">' + esc(pt.unit) + '</span></label>';
+    });
+    if (!P.checked){
+      h += '<button class="btn primary" data-act="pr-check" style="margin-top:12px">Check<small>or press Enter</small></button>';
+    } else {
+      h += '<div class="prres ' + (P.res.all ? 'ok' : 'no') + '">' + (P.res.all ? 'Correct' : 'Not quite') + ' &middot; answer: ' + P.q.parts.map(function(pt){ return esc(pt.label) + ' ' + prShow(pt) + (pt.unit ? ' ' + esc(pt.unit) : ''); }).join(', ') + '</div>';
+      h += '<ol class="prsteps">' + P.q.steps.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ol>';
+      h += '<button class="btn primary" data-act="pr-next">Next question</button>';
+    }
+    h += '</div>';
+    host.innerHTML = h;
+    if (P.focus && !P.checked){ P.focus = false; var inp = host.querySelector('.prin'); if (inp) try { inp.focus(); } catch (e) {} }
   }
 
   /* ---------- events ---------- */
@@ -753,6 +978,10 @@
     "l-skip": function(){ if (UI.L.stage === "read" || UI.L.stage === "check") afterChecks(); else goNext(); },
     "l-next": function(){ goNext(); },
     "l-do": function(t){ var o = {}; o[UI.L.key + "-" + UI.L.i] = !!t.checked; setProgress({ did: o }); },
+    "pr-gen": function(t, v){ UI.pr.gen = v; UI.pr.q = null; if (v === "cheat") UI.pr.q = null; },
+    "pr-check": function(){ prCheck(); },
+    "pr-quiz": function(){ startDrill(quizIds(), "Quick quiz: 15 multiple-choice"); },
+    "pr-next": function(){ UI.pr.q = null; },
     "gq-toggle": function(){ UI.gq = !UI.gq; UI.gOpen = {}; },
     "g-open": function(t, v){ if (UI.gq) UI.gOpen[v] = !UI.gOpen[v]; }
   };
@@ -763,8 +992,17 @@
     if (a === "l-do") return;
     if (H[a]) { H[a](t, t.getAttribute("data-v"), t.getAttribute("data-ctx")); render(); }
   });
+  document.addEventListener("input", function(e){
+    var t = e.target; if (!t || !t.classList || !t.classList.contains("prin")) return;
+    UI.pr.vals[+t.getAttribute("data-p")] = t.value;
+  });
+  document.addEventListener("keydown", function(e){
+    var t = e.target; if (e.key !== "Enter" || !t || !t.classList || !t.classList.contains("prin")) return;
+    e.preventDefault(); if (UI.pr.checked) UI.pr.q = null; else prCheck(); render();
+  });
   document.addEventListener("change", function(e){
     var t = e.target.closest("[data-act]");
+    if (t && t.getAttribute("data-act") === "plan-do"){ var o = {}; o[t.getAttribute("data-v")] = !!t.checked; setProgress({ plan: o }); render(); return; }
     if (t && t.getAttribute("data-act") === "l-do"){ H["l-do"](t); render(); }
   });
   document.addEventListener("keydown", function(e){
