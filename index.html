@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#16283a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Skipper">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="fonts.css">
+<title>Day Skipper Recall</title>
+<style>
+  :root{
+    --bg:#eef2f3; --surface:#ffffff; --surface-2:#e4eaec;
+    --ink:#16283a; --muted:#5b7184; --border:#c7d2d9;
+    --accent:#8a6318; --accent-ink:#ffffff;
+    --good:#2f7d5c; --good-ink:#ffffff;
+    --bad:#a8382a; --bad-ink:#ffffff;
+    --shadow: 0 1px 2px rgba(22,40,58,.08), 0 4px 14px rgba(22,40,58,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0d1b26; --surface:#132433; --surface-2:#1a2f40;
+      --ink:#e7edf1; --muted:#93a7b6; --border:#2a3f52;
+      --accent:#d7a54a; --accent-ink:#16283a;
+      --good:#4fae82; --good-ink:#0d1b26;
+      --bad:#e2685a; --bad-ink:#0d1b26;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1b26; --surface:#132433; --surface-2:#1a2f40;
+    --ink:#e7edf1; --muted:#93a7b6; --border:#2a3f52;
+    --accent:#d7a54a; --accent-ink:#16283a;
+    --good:#4fae82; --good-ink:#0d1b26;
+    --bad:#e2685a; --bad-ink:#0d1b26;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Public Sans","Source Sans 3",system-ui,sans-serif;
+    padding-inline:16px; padding-block:20px;
+    display:flex; justify-content:center;
+  }
+  .app{ width:100%; max-width:640px; display:flex; flex-direction:column; gap:14px; }
+  h1, h2, h3{ font-family:"Fraunces",Georgia,serif; font-weight:600; margin:0; text-wrap:balance; }
+  h1{ font-size:1.5rem; letter-spacing:.2px; }
+  h2{ font-size:1.25rem; line-height:1.3; }
+  h3{ font-size:1rem; }
+  .eyebrow{ font-size:.72rem; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); margin:0 0 4px; }
+
+  header.top{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .deadline{ font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; text-align:right; font-size:.82rem; color:var(--muted); }
+  .deadline b{ color:var(--accent); font-size:1.1rem; }
+
+  nav.tabs{ display:flex; gap:4px; background:var(--surface-2); border-radius:10px; padding:4px; }
+  nav.tabs button{
+    flex:1; padding:9px 4px; border:none; background:transparent; color:var(--muted);
+    font:inherit; font-size:.84rem; font-weight:600; border-radius:7px; cursor:pointer;
+  }
+  nav.tabs button[aria-selected="true"]{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+  button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  section[hidden]{ display:none !important; }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; box-shadow:var(--shadow); }
+  .stack{ display:flex; flex-direction:column; gap:14px; }
+  .empty{ color:var(--muted); font-size:.92rem; text-align:center; padding:26px 12px; line-height:1.6; }
+  .empty b{ color:var(--ink); }
+  .muted{ color:var(--muted); font-size:.84rem; line-height:1.5; }
+
+  .banner{ background:var(--surface); border:1px solid var(--accent); border-radius:12px; padding:12px 14px; font-size:.92rem; line-height:1.5; }
+  .banner.ready{ background:var(--surface-2); }
+  .banner [data-timer]{ font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+  .flag{ color:var(--bad); font-weight:700; }
+  .prio{ display:inline-block; font-size:.66rem; font-weight:700; letter-spacing:.04em; padding:2px 8px; border-radius:99px; background:rgba(30,100,160,.14); color:var(--ink); text-transform:uppercase; white-space:nowrap; }
+  .prio.extra{ background:rgba(128,128,128,.16); color:var(--muted); }
+  .prio.base{ background:rgba(40,150,90,.16); }
+  .lrow.ord .name{ font-weight:600; color:var(--ink); text-align:left; font-size:.9rem; }
+  .lrow.ord.here .name{ font-weight:800; }
+  .lrow.ord .st{ font-weight:500; color:var(--muted); font-size:.76rem; text-align:right; }
+
+  .btn{
+    display:block; width:100%; padding:13px 14px; border-radius:10px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--ink); font:inherit; font-weight:700; cursor:pointer; text-align:left;
+  }
+  .btn small{ display:block; font-weight:500; opacity:.85; margin-top:2px; font-size:.78rem; }
+  .btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btn + .btn{ margin-top:10px; }
+  .btn.slim{ width:auto; display:inline-block; padding:9px 14px; }
+
+  .pills{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:6px; }
+  .pill{ border:1px solid var(--border); background:var(--surface); border-radius:10px; padding:10px 4px 8px; text-align:center; cursor:pointer; font:inherit; color:var(--ink); }
+  .pill .n{ font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; font-size:1.4rem; display:block; line-height:1.1; }
+  .pill .l{ font-size:.68rem; color:var(--muted); display:block; margin-top:2px; }
+  .pill i{ display:block; height:4px; border-radius:2px; margin:7px auto 0; width:55%; }
+  .c-new{ background:var(--border); } .c-shaky{ background:var(--bad); } .c-getting{ background:var(--accent); } .c-solid{ background:var(--good); }
+
+  .lrow{ display:block; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--border); padding:11px 0; font:inherit; color:var(--ink); cursor:pointer; }
+  .lrow:last-child{ border-bottom:none; }
+  .lrow .t{ display:flex; justify-content:space-between; gap:8px; font-size:.9rem; font-weight:600; }
+  .lrow .t span{ font-weight:500; color:var(--muted); font-size:.76rem; text-align:right; }
+  .bar{ display:flex; height:6px; border-radius:3px; overflow:hidden; background:var(--surface-2); margin-top:7px; }
+  .bar span{ display:block; height:100%; }
+  .sec-title{ margin:4px 0 2px; }
+  .legend{ font-size:.76rem; color:var(--muted); margin-top:8px; line-height:1.5; }
+
+  .review-meta{ font-size:.76rem; color:var(--muted); margin-bottom:10px; letter-spacing:.02em; display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .question{ font-family:"Fraunces",Georgia,serif; font-size:1.2rem; line-height:1.4; text-wrap:balance; }
+  .answer{ margin-top:14px; padding-top:14px; border-top:1px dashed var(--border); font-size:.97rem; line-height:1.55; }
+  .reveal-btn{ margin-top:16px; width:100%; padding:11px; border-radius:9px; border:1px solid var(--border); background:var(--surface-2); color:var(--ink); font:inherit; font-weight:600; cursor:pointer; }
+  .grade-row{ display:flex; gap:8px; margin-top:16px; }
+  .grade-row button{ flex:1; padding:11px 6px; border-radius:9px; border:none; font:inherit; font-weight:700; font-size:.86rem; cursor:pointer; }
+  .g-again{ background:var(--bad); color:var(--bad-ink); }
+  .g-good{ background:var(--surface-2); color:var(--ink); border:1px solid var(--border) !important; }
+  .g-easy{ background:var(--good); color:var(--good-ink); }
+  .grade-row .suggest{ outline:2px solid var(--accent); outline-offset:2px; }
+  .kbd-hint{ font-size:.72rem; color:var(--muted); margin-top:10px; text-align:center; }
+
+  .choices{ display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+  .choice{ padding:11px 12px; border:1px solid var(--border); border-radius:9px; background:var(--surface-2); color:var(--ink); font:inherit; text-align:left; cursor:pointer; }
+  .choice:disabled{ cursor:default; opacity:.9; }
+  .choice.right{ border:2px solid var(--good); }
+  .choice.wrong{ border:2px solid var(--bad); }
+
+  .lhead{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:.78rem; color:var(--muted); margin-bottom:8px; }
+  .progress{ height:4px; background:var(--surface-2); border-radius:2px; margin-bottom:16px; overflow:hidden; }
+  .progress span{ display:block; height:100%; background:var(--accent); }
+  .linkbtn{ background:none; border:none; color:var(--muted); text-decoration:underline; cursor:pointer; font:inherit; font-size:.8rem; padding:2px; }
+  .points{ margin:12px 0 0; padding-left:20px; line-height:1.6; font-size:.95rem; }
+  .points li + li{ margin-top:6px; }
+  .example, .callout{ background:var(--surface-2); border-radius:10px; padding:12px 14px; margin-top:14px; font-size:.92rem; line-height:1.55; }
+  .example ol{ margin:6px 0 0; padding-left:20px; }
+  .example li + li{ margin-top:4px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }
+  .chip{ background:var(--surface-2); border-radius:999px; padding:4px 11px; font-size:.8rem; }
+  .chip i{ color:var(--accent); }
+  .dothis{ display:flex; gap:10px; align-items:flex-start; margin-top:14px; font-size:.95rem; line-height:1.5; }
+  .dothis input{ margin-top:4px; width:18px; height:18px; }
+
+  .diagram{ margin:14px 0 4px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); padding:8px; overflow-x:auto; }
+  .diagram svg{ display:block; width:100%; min-width:600px; height:auto; }
+
+  .gloss-row{ display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .gloss-row:last-child{ border-bottom:none; }
+  .gloss-row .en{ font-weight:700; }
+  .gloss-row .fr{ color:var(--accent); font-style:italic; }
+  .gloss-row .def{ grid-column:1 / -1; font-size:.84rem; color:var(--muted); margin-top:2px; }
+  .gloss-row.hide .fr{ filter:blur(7px); cursor:pointer; user-select:none; }
+  .sync-note{ font-size:.76rem; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+<script src="data.js"></script>
+<script src="app.js"></script>
+
+
+<div class="app">
+  <header class="top">
+    <div>
+      <p class="eyebrow">RYA Day Skipper &middot; Shorebased Theory</p>
+      <h1>Day Skipper Recall</h1>
+    </div>
+    <div class="deadline" id="deadlineBox">&nbsp;</div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tb-today" data-act="tab" data-v="today" aria-selected="true">Today</button>
+    <button role="tab" id="tb-learn" data-act="tab" data-v="learn" aria-selected="false">Learn</button>
+    <button role="tab" id="tb-review" data-act="tab" data-v="review" aria-selected="false">Review</button>
+    <button role="tab" id="tb-glossary" data-act="tab" data-v="glossary" aria-selected="false">Glossary</button>
+  </nav>
+
+  <section id="p-today" class="stack"></section>
+  <section id="p-learn" class="stack" hidden></section>
+  <section id="p-review" class="stack" hidden></section>
+  <section id="p-glossary" class="stack" hidden></section>
+
+  <p class="sync-note" id="syncNote"></p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var DEADLINE = "2026-10-07";
+  var DRILL_DELAY_MS = 10 * 60 * 1000;
+  var TIMER_EXPIRY_MS = 12 * 60 * 60 * 1000;
+  var $ = function(id){ return document.getElementById(id); };
+
+  function localISO(d){
+    var m = d.getMonth() + 1, x = d.getDate();
+    return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (x < 10 ? "0" : "") + x;
+  }
+  function todayISO(){ return localISO(new Date()); }
+  function addDaysISO(n){ var d = new Date(); d.setDate(d.getDate() + n); return localISO(d); }
+  function lastStudyDay(){ var d = new Date(DEADLINE + "T12:00:00"); d.setDate(d.getDate() - 1); return localISO(d); }
+
+  var STEPS_PRE = [0, 1, 2, 3, 4], STEPS_POST = [0, 1, 3, 7, 16];
+  function nextDue(box){
+    var today = todayISO(), last = lastStudyDay(), pre = today <= last;
+    var days = (pre ? STEPS_PRE : STEPS_POST)[Math.max(0, Math.min(4, box - 1))];
+    var due = addDaysISO(days);
+    if (pre && due > last) due = last;
+    return due < today ? today : due;
+  }
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function fmt(s){ return esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>"); }
+  function shuffle(a){
+    for (var i = a.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function merge(t, s){
+    for (var k in s){
+      if (s[k] && typeof s[k] === "object" && !Array.isArray(s[k])){
+        if (!t[k] || typeof t[k] !== "object") t[k] = {};
+        merge(t[k], s[k]);
+      } else t[k] = s[k];
+    }
+    return t;
+  }
+  function fmtLeft(ms){
+    if (ms <= 0) return "now";
+    var s = Math.ceil(ms / 1000), m = Math.floor(s / 60); s = s % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  var S = { cards: [], lessons: [], glossary: [], plan: null, progress: { lessons: {}, did: {}, timers: {} }, db: null, cardsCol: null };
+  var UI = { tab: "today", hub: null, rv: { mode: "due", ids: null, spec: null, pos: 0, label: "", curId: null, revealed: false, picked: null }, L: null, gq: false, gOpen: {} };
+  var session = { again: 0, good: 0, easy: 0 };
+
+  var LKEY = "dayskipper_recall_cards_v1";
+  function loadLocal(){ try { return JSON.parse(localStorage.getItem(LKEY) || "[]"); } catch(e){ return []; } }
+  function saveLocal(){ try { localStorage.setItem(LKEY, JSON.stringify(S.cards)); } catch(e){} }
+
+  function renderDeadline(){
+    var today = new Date(todayISO() + "T12:00:00"), end = new Date(DEADLINE + "T12:00:00");
+    var days = Math.max(0, Math.round((end - today) / 86400000));
+    $("deadlineBox").innerHTML = '<b>' + days + '</b> day' + (days === 1 ? '' : 's') + ' to class<br>' + DEADLINE;
+  }
+
+  /* ---------- cards ---------- */
+  function byId(id){ for (var i = 0; i < S.cards.length; i++) if (S.cards[i].id === id) return S.cards[i]; return null; }
+  function bucketOf(c){ var r = c.lastResult; return !r ? "new" : (r === "again" ? "shaky" : (r === "good" ? "getting" : "solid")); }
+  var BNAME = { "new": "Not seen", shaky: "Shaky", getting: "Getting there", solid: "Solid" };
+  var BORDER = ["new", "shaky", "getting", "solid"];
+
+  // A card enters the daily queue only after you have answered it once, or finished the lesson part it belongs to.
+  function unlockedIds(){
+    var open = {}, inLesson = {};
+    S.lessons.forEach(function(l){
+      var pr = (S.progress.lessons && S.progress.lessons[l.key]) || {};
+      (l.chunks || []).forEach(function(ch, i){
+        (ch.cards || []).forEach(function(id){
+          inLesson[id] = true;
+          if (pr.done || (pr.i != null && i < pr.i)) open[id] = true;
+        });
+      });
+    });
+    if (S.lessons.length) S.cards.forEach(function(c){ if (!inLesson[c.id]) open[c.id] = true; });
+    return open;
+  }
+
+  function cardsDueSorted(){
+    var t = todayISO();
+    var open = unlockedIds();
+    var due = S.cards.filter(function(c){ return (c.dueAt || t) <= t && (c.lastResult || open[c.id]); });
+    var retry = due.filter(function(c){ return c.lastResult === "again" && c.lastReviewedAt === t; });
+    var fresh = due.filter(function(c){ return !(c.lastResult === "again" && c.lastReviewedAt === t); });
+    var groups = {}, order = [];
+    fresh.forEach(function(c){ var k = c.dueAt || t; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(c); });
+    order.sort();
+    var out = [];
+    order.forEach(function(k){ out = out.concat(shuffle(groups[k])); });
+    retry.sort(function(a, b){ return (a.lastReviewedTs || 0) - (b.lastReviewedTs || 0); });
+    return out.concat(retry);
+  }
+
+  function gradeCard(card, g){
+    var box = card.box || 1;
+    if (g === "again") box = 1; else if (g === "good") box = Math.min(5, box + 1); else box = Math.min(5, box + 2);
+    var patch = { box: box, dueAt: nextDue(box), lastResult: g, lastReviewedAt: todayISO(), lastReviewedTs: Date.now() };
+    Object.assign(card, patch);
+    session[g] += 1;
+    if (S.cardsCol){
+      S.cardsCol.doc(card.id).update(patch).catch(function(){
+        S.cardsCol.doc(card.id).set(Object.assign({}, card)).catch(function(){});
+      });
+    } else saveLocal();
+  }
+
+  var pq = Promise.resolve();
+  function setProgress(patch){
+    merge(S.progress, patch);
+    if (S.db){
+      pq = pq.then(function(){
+        return S.db.doc("meta/progress").update(patch).catch(function(){ return S.db.doc("meta/progress").set(S.progress); });
+      }).catch(function(){});
+    }
+  }
+
+  function cardHTML(c, st, ctx){
+    var h = "";
+    if (c.diagramSvg) h += '<div class="diagram">' + c.diagramSvg + '</div>';
+    h += '<div class="question">' + fmt(c.question) + '</div>';
+    if (c.choices && c.choices.length){
+      h += '<div class="choices">';
+      c.choices.forEach(function(ch, i){
+        var cls = "choice";
+        if (st.picked != null){ if (i === c.correct) cls += " right"; else if (i === st.picked) cls += " wrong"; }
+        h += '<button class="' + cls + '" data-act="pick" data-ctx="' + ctx + '" data-v="' + i + '"' + (st.picked != null ? ' disabled' : '') + '>' + esc(ch) + '</button>';
+      });
+      h += '</div>';
+      if (st.picked != null){
+        var ok = st.picked === c.correct;
+        h += '<div class="answer"><b>' + (ok ? 'Correct.' : 'Not quite.') + '</b> ' + fmt(c.answer) + '</div>' + gradeRow(ctx, ok ? "good" : "again");
+      }
+    } else if (st.revealed){
+      h += '<div class="answer">' + fmt(c.answer) + '</div>' + gradeRow(ctx, null);
+    } else {
+      h += '<button class="reveal-btn" data-act="reveal" data-ctx="' + ctx + '">Show answer</button><div class="kbd-hint">answer out loud first &middot; space to reveal</div>';
+    }
+    return h;
+  }
+  function gradeRow(ctx, suggest){
+    function b(g, label, cls){ return '<button class="' + cls + (suggest === g ? ' suggest' : '') + '" data-act="grade" data-ctx="' + ctx + '" data-g="' + g + '">' + label + '</button>'; }
+    return '<div class="grade-row">' + b("again", "Again", "g-again") + b("good", "Good", "g-good") + b("easy", "Easy", "g-easy") + '</div><div class="kbd-hint">keys: 1 again &middot; 2 good &middot; 3 easy</div>';
+  }
+
+  /* ---------- lessons ---------- */
+  function sortedLessons(){
+    return S.lessons.slice().sort(function(a, b){ return (((a.pri != null ? a.pri : (a.sn || 0)) - (b.pri != null ? b.pri : (b.sn || 0)))) || ((a.order || 0) - (b.order || 0)); });
+  }
+  function sectionOrder(){
+    var ls = sortedLessons(), secs = [], by = {}, n = 0;
+    ls.forEach(function(l){ if (!by[l.section]) { by[l.section] = { sec: l.section, sn: l.sn, ls: [] }; secs.push(by[l.section]); } by[l.section].ls.push(l); });
+    secs.forEach(function(g){
+      var p = (g.ls[0].pri != null ? g.ls[0].pri : g.sn);
+      if (g.sn === 1) g.label = "base";
+      else if (p < 10) { n++; g.label = "priority " + n; }
+      else g.label = "extra";
+      g.done = g.ls.filter(function(l){ return lprog(l.key).done; }).length;
+    });
+    return secs;
+  }
+  function prioBadge(label){ return '<span class="prio ' + (label === "extra" ? "extra" : (label === "base" ? "base" : "")) + '">' + esc(label) + '</span>'; }
+  function lessonByKey(k){ for (var i = 0; i < S.lessons.length; i++) if (S.lessons[i].key === k) return S.lessons[i]; return null; }
+  function lprog(k){ return (S.progress.lessons && S.progress.lessons[k]) || {}; }
+  function nextLesson(){
+    var ls = sortedLessons();
+    for (var i = 0; i < ls.length; i++){ if (!lprog(ls[i].key).done) return ls[i]; }
+    return null;
+  }
+  function chunkCards(ch){ return (ch.cards || []).map(byId).filter(Boolean); }
+  function lessonCardIds(l){
+    var ids = [];
+    (l.chunks || []).forEach(function(ch){ (ch.cards || []).forEach(function(id){ if (ids.indexOf(id) < 0) ids.push(id); }); });
+    return ids;
+  }
+  function lessonStats(l){
+    var cnt = { "new": 0, shaky: 0, getting: 0, solid: 0 }, n = 0;
+    lessonCardIds(l).forEach(function(id){ var c = byId(id); if (c) { cnt[bucketOf(c)]++; n++; } });
+    return { n: n, cnt: cnt };
+  }
+  function lessonStarted(l){
+    var p = lprog(l.key), st = lessonStats(l);
+    return !!(p.done || p.i > 0 || (st.n - st.cnt["new"]) > 0);
+  }
+  // Flag a started lesson when more than half its cards are Shaky or Not seen.
+  function revisitScore(l){
+    var st = lessonStats(l);
+    if (!st.n || !lessonStarted(l)) return 0;
+    var bad = st.cnt.shaky + st.cnt["new"];
+    return (bad / st.n > 0.5) ? (bad / st.n) + st.cnt.shaky / 100 : 0;
+  }
+  function revisitList(){
+    return sortedLessons().map(function(l){ return { l: l, s: revisitScore(l) }; })
+      .filter(function(x){ return x.s > 0; }).sort(function(a, b){ return b.s - a.s; });
+  }
+
+  /* timers */
+  function activeTimers(){
+    var t = S.progress.timers || {}, now = Date.now(), out = [];
+    for (var k in t){ var v = +t[k]; if (v > 0 && now - v < TIMER_EXPIRY_MS && lessonByKey(k)) out.push({ key: k, at: v }); }
+    out.sort(function(a, b){ return a.at - b.at; });
+    return out;
+  }
+  function startTimer(k){ var o = {}; o[k] = Date.now() + DRILL_DELAY_MS; setProgress({ timers: o }); }
+  function clearTimer(k){ var o = {}; o[k] = 0; setProgress({ timers: o }); }
+  function timerFor(k){ var t = activeTimers(); for (var i = 0; i < t.length; i++) if (t[i].key === k) return t[i]; return null; }
+  function timerHTML(x, titleLine){
+    var left = x.at - Date.now();
+    if (left > 0){
+      return '<div class="banner"><b>Come back in <span data-timer="' + x.at + '">' + fmtLeft(left) + '</span></b><br><span class="muted">' + esc(titleLine) +
+             ': a short gap makes the drill work harder, so it sticks better.</span><button class="btn" data-act="timer-go" data-v="' + esc(x.key) + '" style="margin-top:10px">Drill now (early)</button></div>';
+    }
+    return '<div class="banner ready"><b>Now is a good time to come back</b><br><span class="muted">' + esc(titleLine) +
+           '</span><button class="btn primary" data-act="timer-go" data-v="' + esc(x.key) + '" style="margin-top:10px">Start the drill</button></div>';
+  }
+
+  function startChunk(i){
+    var l = lessonByKey(UI.L.key), ch = l.chunks[i];
+    UI.L.i = i; UI.L.stage = (UI.L.mode === "full" && ch.predict) ? "predict" : "read"; UI.L.ci = 0; UI.L.picked = null; UI.L.rev = false;
+  }
+  function openLesson(k, mode){
+    var l = lessonByKey(k); if (!l) return;
+    mode = mode || "full";
+    var p = lprog(k), i = (mode === "full" && !p.done && p.i && p.i < l.chunks.length) ? p.i : 0;
+    UI.L = { key: k, mode: mode, i: 0, stage: "read", ci: 0, rev: false, picked: null };
+    startChunk(i);
+    UI.tab = "learn"; UI.hub = k;
+  }
+  function goNext(){
+    var l = lessonByKey(UI.L.key), full = UI.L.mode === "full";
+    if (UI.L.i + 1 < l.chunks.length){
+      if (full){ var o = {}; o[UI.L.key] = { i: UI.L.i + 1 }; setProgress({ lessons: o }); }
+      startChunk(UI.L.i + 1);
+    } else {
+      if (full){ var d = {}; d[UI.L.key] = { i: 0, done: true }; setProgress({ lessons: d }); startTimer(UI.L.key); }
+      UI.L.stage = "end";
+    }
+  }
+  function afterChecks(){
+    var l = lessonByKey(UI.L.key), ch = l.chunks[UI.L.i];
+    if (ch.doThis) UI.L.stage = "do"; else goNext();
+  }
+  function lessonCheckCard(){
+    var l = lessonByKey(UI.L.key); if (!l) return null;
+    return chunkCards(l.chunks[UI.L.i])[UI.L.ci] || null;
+  }
+
+  function chunkHTML(ch){
+    var h = '<h2>' + esc(ch.h) + '</h2>';
+    if (ch.points && ch.points.length) h += '<ul class="points">' + ch.points.map(function(p){ return '<li>' + fmt(p) + '</li>'; }).join('') + '</ul>';
+    var svg = ch.diagram;
+    if (!svg && ch.diagramCard){ var dc = byId(ch.diagramCard); if (dc) svg = dc.diagramSvg; }
+    if (svg) h += '<div class="diagram">' + svg + '</div>';
+    if (ch.example) h += '<div class="example"><div class="eyebrow">Worked example: ' + esc(ch.example.title) + '</div><ol>' + ch.example.steps.map(function(s){ return '<li>' + fmt(s) + '</li>'; }).join('') + '</ol></div>';
+    if (ch.call) h += '<div class="callout"><div class="eyebrow">Skipper\'s call</div>' + fmt(ch.call) + '</div>';
+    if (ch.terms && ch.terms.length) h += '<div class="chips">' + ch.terms.map(function(t){ return '<span class="chip">' + esc(t[0]) + ' <i>' + esc(t[1]) + '</i></span>'; }).join('') + '</div>';
+    if (UI.L && UI.L.mode === "read" && ch.doThis) h += '<div class="example"><div class="eyebrow">Practise</div>' + fmt(ch.doThis) + '</div>';
+    return h;
+  }
+
+  /* ---------- render: today ---------- */
+  function renderToday(){
+    var due = cardsDueSorted().length;
+    var cnt = { "new": 0, shaky: 0, getting: 0, solid: 0 };
+    S.cards.forEach(function(c){ cnt[bucketOf(c)]++; });
+    var nl = nextLesson(), h = '';
+
+    var tms = activeTimers();
+    tms.slice(0, 2).forEach(function(x){ h += timerHTML(x, lessonByKey(x.key).title); });
+    if (tms.length > 2) h += '<p class="muted">' + (tms.length - 2) + ' more lesson drill' + (tms.length - 2 === 1 ? '' : 's') + ' waiting. Open Learn to find them.</p>';
+
+    h += '<div class="card">';
+    h += '<button class="btn primary" data-act="start-due"' + (due ? '' : ' disabled') + '>Review ' + due + ' due card' + (due === 1 ? '' : 's') +
+         '<small>' + (due ? 'topics are mixed on purpose; shaky ones come back later today' : 'nothing due right now') + '</small></button>';
+    if (nl){
+      var started = lprog(nl.key).i > 0;
+      h += '<button class="btn" data-act="open-lesson" data-v="' + esc(nl.key) + '">' + (started ? 'Continue' : 'Start') + ': ' + esc(nl.title) +
+           '<small>' + esc(nl.section) + ' &middot; ' + nl.chunks.length + ' short parts</small></button>';
+    } else if (S.lessons.length){
+      h += '<button class="btn" data-act="tab" data-v="learn">All lessons done<small>re-open any lesson from Learn</small></button>';
+    }
+    h += '</div>';
+
+    var rl = revisitList().slice(0, 2);
+    if (rl.length){
+      h += '<div class="card"><div class="eyebrow">Go back to</div>';
+      rl.forEach(function(x){
+        var st = lessonStats(x.l), bad = st.cnt.shaky + st.cnt["new"];
+        h += '<button class="lrow" data-act="hub-open" data-v="' + esc(x.l.key) + '"><div class="t">' + esc(x.l.title) + '<span><span class="flag">revisit</span> &middot; ' + bad + ' of ' + st.n + ' cards shaky or unseen</span></div></button>';
+      });
+      h += '</div>';
+    }
+
+    var so = sectionOrder(), nlSec = nl ? nl.section : null;
+    h += '<div class="card"><div class="eyebrow">Study order (class starts 7 Oct)</div>';
+    so.forEach(function(g){
+      var ci = g.sec.indexOf(':'), short = ci > 0 ? g.sec.slice(0, ci) : g.sec, name = ci > 0 ? g.sec.slice(ci + 1).trim() : '';
+      var prog = g.done === g.ls.length ? 'done' : g.done + ' of ' + g.ls.length + ' lessons';
+      h += '<button class="lrow ord' + (g.sec === nlSec ? ' here' : '') + '" data-act="tab" data-v="learn"><div class="t"><span class="name">' + prioBadge(g.label) + ' ' + esc(short) + (name ? ' &middot; ' + esc(name) : '') + '</span><span class="st">' + prog + (g.sec === nlSec ? ' &middot; <b>you are here</b>' : '') + '</span></div></button>';
+    });
+    h += '<div class="legend">Do priority 1 to 6 first, in this order. Extra sections only once those feel solid.</div></div>';
+
+    h += '<div class="card"><div class="eyebrow">Where you stand (by the last button you pressed)</div><div class="pills">';
+    BORDER.forEach(function(b){
+      h += '<button class="pill" data-act="drill-bucket" data-v="' + b + '"' + (cnt[b] ? '' : ' disabled style="opacity:.55;cursor:default"') + '><span class="n">' + cnt[b] + '</span><span class="l">' + BNAME[b] + '</span><i class="c-' + b + '"></i></button>';
+    });
+    h += '</div><div class="kbd-hint">tap a box to drill just those cards</div></div>';
+
+    var keyFor = {};
+    S.lessons.forEach(function(l){ if (l.cardLesson) keyFor[l.cardLesson] = l.key; });
+    var groups = {}, order = [];
+    S.cards.forEach(function(c){
+      var k = c.lesson || "Other";
+      if (!groups[k]) { groups[k] = { cards: [] }; order.push(k); }
+      groups[k].cards.push(c);
+    });
+    var rank = {};
+    sortedLessons().forEach(function(l, i){ if (l.cardLesson) rank[l.cardLesson] = i; });
+    order.sort(function(a, b){ return (rank[a] == null ? 99 : rank[a]) - (rank[b] == null ? 99 : rank[b]); });
+    if (order.length){
+      h += '<div class="card"><div class="eyebrow">By lesson</div>';
+      order.forEach(function(k){
+        var g = groups[k], n = g.cards.length, c2 = { "new": 0, shaky: 0, getting: 0, solid: 0 };
+        g.cards.forEach(function(c){ c2[bucketOf(c)]++; });
+        var act = keyFor[k] ? 'data-act="hub-open" data-v="' + esc(keyFor[k]) + '"' : 'data-act="drill-lesson" data-v="' + esc(k) + '"';
+        h += '<button class="lrow" ' + act + '><div class="t">' + esc(k) + '<span>' + n + ' cards</span></div><div class="bar">';
+        BORDER.forEach(function(b){ if (c2[b]) h += '<span class="c-' + b + '" style="width:' + (100 * c2[b] / n) + '%"></span>'; });
+        h += '</div></button>';
+      });
+      h += '<div class="legend">grey = not seen &middot; red = shaky &middot; amber = getting there &middot; green = solid</div></div>';
+    }
+    if (S.plan && S.plan.nextUp) h += '<p class="muted">' + fmt(S.plan.nextUp) + '</p>';
+    $("p-today").innerHTML = h;
+  }
+
+  /* ---------- render: learn ---------- */
+  function renderLearn(){
+    var host = $("p-learn"), h = '';
+    if (UI.L){ renderPlayer(host); return; }
+    if (UI.hub){
+      var hl = lessonByKey(UI.hub);
+      if (hl){ renderHub(host, hl); return; }
+      UI.hub = null;
+    }
+    var ls = sortedLessons();
+    if (!ls.length){ host.innerHTML = '<div class="card"><p class="empty">Lessons are loading, or none have been added yet.</p></div>'; return; }
+    var revKeys = {};
+    revisitList().forEach(function(x){ revKeys[x.l.key] = true; });
+    var secs = [], by = {};
+    ls.forEach(function(l){ if (!by[l.section]) { by[l.section] = []; secs.push(l.section); } by[l.section].push(l); });
+    secs.forEach(function(sec){
+      var done = by[sec].filter(function(l){ return lprog(l.key).done; }).length;
+      var rev = by[sec].filter(function(l){ return revKeys[l.key]; }).length;
+      var lab = ''; sectionOrder().forEach(function(g){ if (g.sec === sec) lab = g.label; });
+      h += '<div class="card"><h3 class="sec-title">' + esc(sec) + ' ' + prioBadge(lab) + '</h3><div class="muted" style="margin-bottom:6px">' + done + ' of ' + by[sec].length + ' lessons done' + (rev ? ' &middot; <span class="flag">' + rev + ' to revisit</span>' : '') + '</div>';
+      by[sec].forEach(function(l){
+        var p = lprog(l.key), status = p.done ? "done" : (p.i > 0 ? "part " + (p.i + 1) + " of " + l.chunks.length : l.chunks.length + " parts");
+        if (revKeys[l.key]) status = '<span class="flag">revisit</span> &middot; ' + status;
+        h += '<button class="lrow" data-act="hub-open" data-v="' + esc(l.key) + '"><div class="t">' + esc(l.title) + '<span>' + status + '</span></div></button>';
+      });
+      h += '</div>';
+    });
+    host.innerHTML = h;
+  }
+
+  function renderHub(host, l){
+    var st = lessonStats(l), p = lprog(l.key), tm = timerFor(l.key);
+    var h = '';
+    if (tm) h += timerHTML(tm, l.title);
+    h += '<div class="card"><div class="lhead"><span>' + esc(l.section) + '</span><button class="linkbtn" data-act="hub-exit">all lessons</button></div>';
+    h += '<h2>' + esc(l.title) + '</h2><p class="muted">' + (p.done ? 'Course done' : (p.i > 0 ? 'In progress: part ' + (p.i + 1) + ' of ' + l.chunks.length : l.chunks.length + ' short parts')) + ' &middot; ' + st.n + ' questions</p>';
+    if (st.n){
+      h += '<div class="bar">';
+      BORDER.forEach(function(b){ if (st.cnt[b]) h += '<span class="c-' + b + '" style="width:' + (100 * st.cnt[b] / st.n) + '%"></span>'; });
+      h += '</div><div class="legend">' + BORDER.map(function(b){ return BNAME[b] + ' ' + st.cnt[b]; }).join(' &middot; ') + '</div>';
+    }
+    if (revisitScore(l) > 0) h += '<p class="muted" style="margin-top:10px"><span class="flag">Worth another go:</span> most of this lesson is still shaky or unseen.</p>';
+    h += '<div style="margin-top:16px"><div class="eyebrow">Course and questions</div>' +
+         '<button class="btn primary" data-act="open-lesson" data-v="' + esc(l.key) + '">' + (p.i > 0 && !p.done ? 'Continue' : (p.done ? 'Do it again' : 'Start')) + '<small>guess, read, test yourself, practise</small></button></div>';
+    h += '<div style="margin-top:16px"><div class="eyebrow">Just the course</div>' +
+         '<button class="btn" data-act="open-lesson" data-v="' + esc(l.key) + '" data-mode="read">Read the ' + l.chunks.length + ' parts<small>no tests, nothing is graded</small></button></div>';
+    h += '<div style="margin-top:16px"><div class="eyebrow">Just the questions</div>' +
+         '<button class="btn" data-act="lq" data-v="' + esc(l.key) + '" data-f="all"' + (st.n ? '' : ' disabled') + '>All questions (' + st.n + ')<small>mixed order</small></button>' +
+         '<button class="btn" data-act="lq" data-v="' + esc(l.key) + '" data-f="again"' + (st.cnt.shaky ? '' : ' disabled') + '>Only the ones I said Again (' + st.cnt.shaky + ')<small>the shaky cards in this lesson</small></button></div>';
+    h += '</div>';
+    host.innerHTML = h;
+  }
+
+  function renderPlayer(host){
+    var l = lessonByKey(UI.L.key); if (!l){ UI.L = null; renderLearn(); return; }
+    var L = UI.L, n = l.chunks.length, html = '<div class="card">', readMode = L.mode === "read";
+    if (L.stage === "end"){
+      html += '<div class="lhead"><span>' + esc(l.title) + '</span><button class="linkbtn" data-act="l-exit">back to lesson</button></div>';
+      if (readMode){
+        html += '<h2>Finished reading</h2><p class="muted">Nothing was graded. Ready to see what stuck?</p>' +
+                '<button class="btn primary" data-act="lq" data-v="' + esc(l.key) + '" data-f="all" style="margin-top:12px">Test myself now<small>all questions for this lesson</small></button>' +
+                '<button class="btn" data-act="l-exit">Back to the lesson</button></div>';
+        host.innerHTML = html; return;
+      }
+      html += '<h2>Lesson done</h2><p class="muted">What to carry onto the boat:</p><ul class="points">';
+      l.chunks.forEach(function(ch){ html += '<li><b>' + esc(ch.h) + '.</b> ' + (ch.call ? fmt(ch.call) : '') + '</li>'; });
+      html += '</ul>';
+      var tm = timerFor(l.key);
+      html += '<div style="margin-top:16px">' + (tm ? timerHTML(tm, 'Mixed drill of this lesson') : '<button class="btn primary" data-act="timer-go" data-v="' + esc(l.key) + '">Mixed drill of this lesson</button>') + '</div>';
+      html += '<button class="btn" data-act="l-exit" style="margin-top:12px">Back to the lesson</button></div>';
+      host.innerHTML = html; return;
+    }
+    var ch = l.chunks[L.i];
+    html += '<div class="lhead"><span>' + esc(l.title) + (readMode ? ' (course only)' : '') + ' &middot; part ' + (L.i + 1) + ' of ' + n + '</span><button class="linkbtn" data-act="l-exit">exit</button></div>';
+    html += '<div class="progress"><span style="width:' + Math.round(100 * (L.i + (L.stage === "read" || L.stage === "predict" ? 0 : 0.6)) / n) + '%"></span></div>';
+    if (L.stage === "predict"){
+      html += '<div class="eyebrow">Before you read</div><h2>' + fmt(ch.predict) + '</h2><p class="muted">Guess first, even if you are unsure. Guessing makes the answer stick.</p>' +
+              '<button class="btn primary" data-act="l-predict" style="margin-top:14px">Show the lesson</button>';
+    } else if (L.stage === "read"){
+      var cs = chunkCards(ch);
+      html += chunkHTML(ch);
+      if (readMode) html += '<button class="btn primary" data-act="l-next" style="margin-top:18px">' + (L.i + 1 < n ? 'Next' : 'Finish') + '</button>';
+      else if (cs.length) html += '<button class="btn primary" data-act="l-test" style="margin-top:18px">Test me (' + cs.length + ')<small>the lesson hides while you answer</small></button><button class="linkbtn" data-act="l-skip">skip the check</button>';
+      else html += '<button class="btn primary" data-act="l-skip" style="margin-top:18px">' + (ch.doThis ? 'Next: practise' : 'Next') + '</button>';
+    } else if (L.stage === "check"){
+      var cs2 = chunkCards(ch), c = cs2[L.ci];
+      if (!c){ afterChecks(); renderLearn(); return; }
+      html += '<div class="eyebrow">Check yourself &middot; ' + (L.ci + 1) + ' of ' + cs2.length + '</div>' + cardHTML(c, { revealed: L.rev, picked: L.picked }, "lc");
+      html += '<div style="margin-top:12px"><button class="linkbtn" data-act="l-skip">skip the rest</button></div>';
+    } else if (L.stage === "do"){
+      var ck = L.key + "-" + L.i, done = S.progress.did && S.progress.did[ck];
+      html += '<div class="eyebrow">Practise</div><h2>' + esc(ch.h) + '</h2><label class="dothis"><input type="checkbox" data-act="l-do" ' + (done ? 'checked' : '') + '><span>' + fmt(ch.doThis) + '</span></label>' +
+              '<button class="btn primary" data-act="l-next" style="margin-top:18px">Next</button>';
+    }
+    html += '</div>';
+    host.innerHTML = html;
+  }
+
+  /* ---------- render: review ---------- */
+  function currentCard(){
+    var rv = UI.rv;
+    if (rv.mode === "drill"){
+      while (rv.pos < rv.ids.length){ var c = byId(rv.ids[rv.pos]); if (c) return c; rv.pos++; }
+      return null;
+    }
+    var due = cardsDueSorted();
+    if (!due.length) return null;
+    var keep = null;
+    for (var i = 0; i < due.length; i++) if (due[i].id === rv.curId) keep = due[i];
+    var cc = keep || due[0];
+    if (cc.id !== rv.curId){ rv.curId = cc.id; rv.revealed = false; rv.picked = null; }
+    return cc;
+  }
+  function afterReviewGrade(){
+    var rv = UI.rv; rv.revealed = false; rv.picked = null; rv.curId = null;
+    if (rv.mode === "drill"){
+      rv.pos++;
+      if (rv.pos >= rv.ids.length && rv.spec && rv.spec.key && rv.spec.f === "all") clearTimer(rv.spec.key);
+    }
+  }
+  function startDrill(ids, label, spec){
+    ids = shuffle(ids.slice());
+    if (!ids.length) UI.rv = { mode: "due", ids: null, spec: null, pos: 0, label: "", curId: null, revealed: false, picked: null };
+    else UI.rv = { mode: "drill", ids: ids, spec: spec || null, pos: 0, label: label, curId: null, revealed: false, picked: null };
+    UI.tab = "review";
+  }
+  function startLessonDrill(key, f){
+    var l = lessonByKey(key); if (!l) return;
+    var ids = lessonCardIds(l).filter(function(id){ var c = byId(id); return c && (f !== "again" || bucketOf(c) === "shaky"); });
+    startDrill(ids, l.title + (f === "again" ? " (Again only)" : ""), { key: key, f: f });
+  }
+  function startDue(){
+    UI.rv = { mode: "due", ids: null, spec: null, pos: 0, label: "", curId: null, revealed: false, picked: null };
+    UI.tab = "review";
+  }
+
+  function renderReview(){
+    var rv = UI.rv, c = currentCard(), h = '<div class="card">';
+    if (!c){
+      if (rv.mode === "drill"){
+        h += '<p class="empty"><b>Pass complete.</b><br>' + esc(rv.label) + '</p><button class="btn primary" data-act="drill-again">Go again</button>' +
+             (rv.spec && rv.spec.key ? '<button class="btn" data-act="hub-open" data-v="' + esc(rv.spec.key) + '">Back to the lesson</button>' : '') +
+             '<button class="btn" data-act="back-due">Back to due cards</button>';
+      } else if (!S.cards.length){
+        h += '<p class="empty">No cards yet.</p>';
+      } else {
+        var future = S.cards.map(function(x){ return x.dueAt; }).filter(function(d){ return d && d > todayISO(); }).sort();
+        var tally = (session.again + session.good + session.easy) ? '<br>This visit: ' + session.again + ' again &middot; ' + session.good + ' good &middot; ' + session.easy + ' easy.' : '';
+        var shaky = S.cards.filter(function(x){ return bucketOf(x) === "shaky"; }).length;
+        h += '<p class="empty"><b>All caught up.</b>' + tally + (future.length ? '<br>Next card due ' + esc(future[0]) + '.' : '') + '</p>' +
+             (shaky ? '<button class="btn primary" data-act="drill-bucket" data-v="shaky">Drill ' + shaky + ' shaky card' + (shaky === 1 ? '' : 's') + '</button>' : '');
+      }
+      h += '</div>'; $("p-review").innerHTML = h; return;
+    }
+    var left = rv.mode === "drill" ? (rv.ids.length - rv.pos) : cardsDueSorted().length;
+    h += '<div class="review-meta"><span>' + esc(c.section || "") + (c.lesson ? ' &middot; ' + esc(c.lesson) : '') + '</span><span>' +
+         (rv.mode === "drill" ? 'Drill: ' + esc(rv.label) + ' &middot; ' : '') + left + ' left' +
+         (rv.mode === "drill" ? ' &middot; <button class="linkbtn" data-act="back-due">back to due</button>' : '') + '</span></div>';
+    h += cardHTML(c, { revealed: rv.revealed, picked: rv.picked }, "rv") + '</div>';
+    $("p-review").innerHTML = h;
+  }
+
+  /* ---------- render: glossary ---------- */
+  function renderGlossary(){
+    var host = $("p-glossary");
+    if (!S.glossary.length){ host.innerHTML = '<div class="card"><p class="empty">No terms yet.</p></div>'; return; }
+    var by = {}, order = [];
+    S.glossary.forEach(function(g){ var k = g.section || "General"; if (!by[k]) { by[k] = []; order.push(k); } by[k].push(g); });
+    var h = '<div class="card"><button class="btn slim" data-act="gq-toggle">' + (UI.gq ? 'Show French' : 'Quiz me: hide French') + '</button>' +
+            '<div class="kbd-hint" style="text-align:left">' + (UI.gq ? 'say the French, then tap the blurred word to check' : 'English on the left, French on the right') + '</div>';
+    order.forEach(function(k){
+      h += '<h3 class="sec-title" style="margin-top:14px">' + esc(k) + '</h3>';
+      by[k].forEach(function(g){
+        var hide = UI.gq && !UI.gOpen[g.id];
+        h += '<div class="gloss-row' + (hide ? ' hide' : '') + '" data-act="g-open" data-v="' + esc(g.id) + '"><span class="en">' + esc(g.term_en) + '</span><span class="fr">' + esc(g.term_fr) + '</span>' +
+             (g.definition ? '<span class="def">' + esc(g.definition) + '</span>' : '') + '</div>';
+      });
+    });
+    host.innerHTML = h + '</div>';
+  }
+
+  function render(){
+    renderDeadline();
+    ["today", "learn", "review", "glossary"].forEach(function(t){
+      $("p-" + t).hidden = (t !== UI.tab);
+      $("tb-" + t).setAttribute("aria-selected", String(t === UI.tab));
+    });
+    if (UI.tab === "today") renderToday();
+    else if (UI.tab === "learn") renderLearn();
+    else if (UI.tab === "review") renderReview();
+    else renderGlossary();
+  }
+
+  /* ---------- events ---------- */
+  var H = {
+    "tab": function(t, v){ UI.tab = v; if (v === "review" && UI.rv.mode === "drill" && !currentCard()) startDue(); },
+    "start-due": function(){ startDue(); },
+    "drill-bucket": function(t, v){ startDrill(S.cards.filter(function(c){ return bucketOf(c) === v; }).map(function(c){ return c.id; }), BNAME[v]); },
+    "drill-lesson": function(t, v){ startDrill(S.cards.filter(function(c){ return (c.lesson || "Other") === v; }).map(function(c){ return c.id; }), v); },
+    "drill-again": function(){ if (UI.rv.spec && UI.rv.spec.key) startLessonDrill(UI.rv.spec.key, UI.rv.spec.f); else startDrill(UI.rv.ids || [], UI.rv.label); },
+    "back-due": function(){ startDue(); },
+    "reveal": function(t, v, ctx){ if (ctx === "lc") UI.L.rev = true; else UI.rv.revealed = true; },
+    "pick": function(t, v, ctx){ if (ctx === "lc") UI.L.picked = +v; else UI.rv.picked = +v; },
+    "grade": function(t, v, ctx){
+      var g = t.getAttribute("data-g");
+      if (ctx === "lc"){
+        var c2 = lessonCheckCard(); if (!c2) return;
+        gradeCard(c2, g); UI.L.ci++; UI.L.rev = false; UI.L.picked = null;
+        var l = lessonByKey(UI.L.key);
+        if (UI.L.ci >= chunkCards(l.chunks[UI.L.i]).length) afterChecks();
+      } else {
+        var c = currentCard(); if (!c) return;
+        gradeCard(c, g); afterReviewGrade();
+      }
+    },
+    "hub-open": function(t, v){ UI.hub = v; UI.L = null; UI.tab = "learn"; },
+    "hub-exit": function(){ UI.hub = null; },
+    "open-lesson": function(t, v){ openLesson(v, t.getAttribute("data-mode")); },
+    "lq": function(t, v){ startLessonDrill(v, t.getAttribute("data-f")); UI.L = null; },
+    "timer-go": function(t, v){ clearTimer(v); startLessonDrill(v, "all"); UI.L = null; },
+    "l-exit": function(){ if (UI.L) UI.hub = UI.L.key; UI.L = null; },
+    "l-predict": function(){ UI.L.stage = "read"; },
+    "l-test": function(){ UI.L.stage = "check"; UI.L.ci = 0; UI.L.rev = false; UI.L.picked = null; },
+    "l-skip": function(){ if (UI.L.stage === "read" || UI.L.stage === "check") afterChecks(); else goNext(); },
+    "l-next": function(){ goNext(); },
+    "l-do": function(t){ var o = {}; o[UI.L.key + "-" + UI.L.i] = !!t.checked; setProgress({ did: o }); },
+    "gq-toggle": function(){ UI.gq = !UI.gq; UI.gOpen = {}; },
+    "g-open": function(t, v){ if (UI.gq) UI.gOpen[v] = !UI.gOpen[v]; }
+  };
+  document.addEventListener("click", function(e){
+    var t = e.target.closest("[data-act]");
+    if (!t || t.disabled) return;
+    var a = t.getAttribute("data-act");
+    if (a === "l-do") return;
+    if (H[a]) { H[a](t, t.getAttribute("data-v"), t.getAttribute("data-ctx")); render(); }
+  });
+  document.addEventListener("change", function(e){
+    var t = e.target.closest("[data-act]");
+    if (t && t.getAttribute("data-act") === "l-do"){ H["l-do"](t); render(); }
+  });
+  document.addEventListener("keydown", function(e){
+    var tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || e.metaKey || e.ctrlKey || e.altKey) return;
+    var ctx = null, card = null, st = null;
+    if (UI.tab === "review"){ card = currentCard(); ctx = "rv"; st = UI.rv; }
+    else if (UI.tab === "learn" && UI.L && UI.L.stage === "check"){ card = lessonCheckCard(); ctx = "lc"; st = { revealed: UI.L.rev, picked: UI.L.picked }; }
+    if (!card) return;
+    var mcq = card.choices && card.choices.length;
+    var ready = mcq ? st.picked != null : st.revealed;
+    function fake(g){ var f = { getAttribute: function(k){ return k === "data-g" ? g : null; } }; H.grade(f, null, ctx); render(); }
+    if (!mcq && !st.revealed && (e.key === " " || e.key === "Enter")){ e.preventDefault(); H.reveal(null, null, ctx); render(); }
+    else if (ready && e.key === "1") fake("again");
+    else if (ready && e.key === "2") fake("good");
+    else if (ready && e.key === "3") fake("easy");
+  });
+
+  // Countdown text updates every second; a full re-render happens only when a timer reaches zero.
+  setInterval(function(){
+    var els = document.querySelectorAll("[data-timer]"), now = Date.now(), crossed = false;
+    Array.prototype.forEach.call(els, function(el){
+      var left = (+el.getAttribute("data-timer")) - now;
+      el.textContent = fmtLeft(left);
+      if (left <= 0) crossed = true;
+    });
+    if (crossed) render();
+  }, 1000);
+
+  async function init(){
+    var note = $("syncNote");
+    function fallback(){
+      S.cards = loadLocal();
+      note.textContent = "Sync isn't available in this view — cards are saved to this browser only.";
+    }
+    try {
+      var db = (window.claude && window.claude.use) ? await window.claude.use("db") : null;
+      if (db){
+        S.db = db; S.cardsCol = db.collection("cards");
+        S.cardsCol.onSnapshot(function(s){ S.cards = s.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); }); render(); },
+          function(){ note.textContent = "Sync unavailable right now — changes may not save."; });
+        db.collection("lessons").onSnapshot(function(s){ S.lessons = s.docs.map(function(d){ return Object.assign({ key: d.id }, d.data()); }); render(); }, function(){});
+        db.collection("glossary").onSnapshot(function(s){ S.glossary = s.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); }); render(); }, function(){});
+        db.doc("meta/plan").onSnapshot(function(s){ S.plan = s.exists ? s.data() : null; render(); }, function(){});
+        db.doc("meta/progress").onSnapshot(function(s){ if (s.exists) S.progress = merge({ lessons: {}, did: {}, timers: {} }, s.data()); render(); }, function(){});
+      } else fallback();
+    } catch (e) { fallback(); }
+    render();
+  }
+  render();
+  init();
+})();
+</script>
+
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+</body>
+</html>
